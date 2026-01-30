@@ -25,6 +25,9 @@ from typing import Tuple
 from dotenv import load_dotenv
 from PIL import Image
 
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+
 import google.generativeai as genai
 
 
@@ -36,25 +39,30 @@ def load_model():
         raise ValueError("GOOGLE_API_KEY not found in .env file")
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
 
-    print("Gemini-2.0-flash loaded")
+    print("Gemini-2.5-flash loaded")
     return model
 
 
 def infer(model, image_path: Path) -> Tuple[str, float]:
     """Run Gemini OCR inference."""
-    image = Image.open(image_path).convert("RGB")
+    try:
+        image = Image.open(image_path).convert("RGB")
 
-    t0 = time.perf_counter()
-    response = model.generate_content([
-        "Recognize all text in this image. List each text element found.",
-        image
-    ])
-    elapsed = time.perf_counter() - t0
+        t0 = time.perf_counter()
+        response = model.generate_content([
+            "Recognize all text in this image. List each text element found.",
+            image
+        ])
+        elapsed = time.perf_counter() - t0
 
-    result = response.text if response.text else "(no text detected)"
-    return result, elapsed
+        result = response.text if response.text else "(no text detected)"
+        return result, elapsed
+    except Exception as e:
+        if "429" in str(e) or "quota" in str(e).lower():
+            raise RuntimeError("Quota exceeded. Free tier limit reached. Please upgrade your API key or wait for quota reset.") from e
+        raise
 
 
 def benchmark(args):
@@ -69,9 +77,13 @@ def benchmark(args):
     # Timed runs
     times = []
     for i in range(args.runs):
-        _, elapsed = infer(model, image_path)
-        times.append(elapsed)
-        print(f"Run {i + 1}: {elapsed:.2f}s")
+        try:
+            _, elapsed = infer(model, image_path)
+            times.append(elapsed)
+            print(f"Run {i + 1}: {elapsed:.2f}s")
+        except RuntimeError as e:
+            print(f"Error: {e}")
+            return
 
     print(f"\nAvg: {sum(times) / len(times):.2f}s | Min: {min(times):.2f}s | Max: {max(times):.2f}s")
 
@@ -96,10 +108,14 @@ def test(args):
 
     for img_path in images:
         print(f"Processing: {img_path.name}...", end=" ", flush=True)
-        result, elapsed = infer(model, img_path)
-        times.append(elapsed)
-        results.append((img_path.name, result, elapsed))
-        print(f"{elapsed:.2f}s")
+        try:
+            result, elapsed = infer(model, img_path)
+            times.append(elapsed)
+            results.append((img_path.name, result, elapsed))
+            print(f"{elapsed:.2f}s")
+        except RuntimeError as e:
+            print(f"\nError: {e}")
+            return
 
     # Output results
     print("\n" + "=" * 70)
