@@ -10,6 +10,6 @@ test:
 test-hunyuan:
     uv run benchmark_hunyuan.py --warmup
 
-# Test Gemini with warmup
+# Test Gemini
 test-gemini:
-    uv run benchmark_gemini.py --warmup
+    uv run benchmark_gemini.py
