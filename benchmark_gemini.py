@@ -66,11 +66,6 @@ def benchmark(args):
         print(f"Image not found: {image_path}")
         return
 
-    # Warmup
-    print("Warmup run...")
-    _, _ = infer(model, image_path)
-    print("Warmup done.\n")
-
     # Timed runs
     times = []
     for i in range(args.runs):
@@ -94,12 +89,6 @@ def test(args):
         return
 
     print(f"Found {len(images)} images in {args.folder}\n")
-
-    # Warmup
-    if args.warmup and images:
-        print("Warmup run...")
-        _, _ = infer(model, images[0])
-        print("Warmup done.\n")
 
     # Process all images
     results = []
@@ -142,7 +131,6 @@ def main():
     )
     parser.add_argument("--runs", type=int, default=3, help="Number of benchmark runs")
     parser.add_argument("--folder", type=Path, default=Path("postage_stamps"), help="Folder with images for testing")
-    parser.add_argument("--warmup", action="store_true", help="Run warmup inference first")
     args = parser.parse_args()
 
     if args.mode == "bench":
